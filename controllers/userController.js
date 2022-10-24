@@ -1,38 +1,39 @@
 const asyncHandler = require('express-async-handler');
-const jwt = require('jsonwebtoken');
 const User = require('../models/userModel');
 
-// @desc    Create user token
-// @route   POST /user/login
-// @access  Public
-const createUserToken = asyncHandler(async (req, res) => {
-  const { name, email, role } = req.body;
+// @desc    Verify if user is authorided
+// @route   GET /user/verify
+// @access  Private
+const verifyUser = (req, res) => {
+  return res.json({
+    message: 'ok',
+    user: req.user,
+  });
+};
 
-  if (!name || !email || !role) {
-    res.status(400);
-    throw new Error('Add all required fields');
+// @desc    Register allowed users
+// @route   POST /user/verify
+// @access  Private
+const registerUsers = asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin') {
+    res.status(403);
+    throw new Error('Forbidden');
   }
 
-  const userExists = await User.findOne({ email });
-
-  if (userExists) {
-    res.status(201);
-
+  const { users } = req.body;
+  try {
+    const inserted = await User.insertMany(users, { ordered: false });
     return res.json({
-      token: jwt.sign({ id: userExists.id }, process.env.JWT_SECRET, { expiresIn: '30d' }),
+      message: 'Ok',
+      result: inserted,
+    });
+  } catch (error) {
+    res.status = 500;
+    return res.json({
+      message: 'Server error',
+      error,
     });
   }
-
-  const newUser = await User.create({
-    name,
-    email,
-    role,
-  });
-  res.status(201);
-
-  return res.json({
-    token: jwt.sign({ id: newUser.id }, process.env.JWT_SECRET, { expiresIn: '30d' }),
-  });
 });
 
-module.exports = { createUserToken };
+module.exports = { verifyUser, registerUsers };
